@@ -71,6 +71,6 @@ The application manages two primary data types:
 ## ⚠️ 7. Known Limitations
 
 *   Sometimes the same colour code is assigned to two different lines, which may cause the tracking to fail.
-*   Support for full arc drawing is unfinished and requires future development work.
-
+*   Support for arc drawing (partial circle) is unfinished and requires future development work.
+*   Might potentially include support for bezier curves and exponential equations.
 ### License: MIT
