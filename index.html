@@ -1,0 +1,1605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parabola Builder</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body.light-mode {
+            background: #f1f5f9 !important;
+        }
+        #canvas {
+            cursor: crosshair;
+        }
+        #canvas.panning {
+            cursor: grabbing;
+        }
+        #canvas.eraser-mode {
+            cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ef4444' stroke-width='2'%3E%3Cpath d='M20 20H7L3 16c-.8-.8-.8-2 0-2.8L13.8 2.4c.8-.8 2-.8 2.8 0L21 6.8c.8.8.8 2 0 2.8L12 18'/%3E%3C/svg%3E") 12 12, crosshair;
+        }
+        #canvas.resize-mode {
+            cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2'%3E%3Cpath d='M21 21l-6-6m6 6v-4.8m0 4.8h-4.8M3 16.2V21m0 0h4.8M3 21l6-6M21 7.8V3m0 0h-4.8M21 3l-6 6M3 7.8V3m0 0h4.8M3 3l6 6'/%3E%3C/svg%3E") 12 12, crosshair;
+        }
+        /* Specific cursors for Image Tool */
+        #canvas.image-move { cursor: move; }
+        #canvas.image-resize-nwse { cursor: nwse-resize; }
+        #canvas.image-resize-nesw { cursor: nesw-resize; }
+
+        .point-marker {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 10;
+        }
+        .equation-tooltip {
+            position: fixed;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.95);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            pointer-events: none;
+            white-space: nowrap;
+            text-align: center;
+        }
+        body.light-mode .equation-tooltip {
+            background: rgba(255, 255, 255, 0.95);
+            color: #1e293b;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        .btn {
+            transition: all 0.2s ease;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .modal {
+            animation: fadeIn 0.2s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .toggle-btn {
+            width: 44px;
+            height: 24px;
+            border-radius: 12px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .toggle-btn::after {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: white;
+            top: 3px;
+            left: 3px;
+            transition: transform 0.2s;
+        }
+        .toggle-btn.active::after {
+            transform: translateX(20px);
+        }
+        .tool-btn {
+            transition: all 0.2s ease;
+        }
+        .tool-btn.active {
+            ring: 2px;
+            ring-offset: 2px;
+        }
+        body.light-mode .panel {
+            background: rgba(255, 255, 255, 0.95) !important;
+            border-color: #e2e8f0 !important;
+            color: #1e293b !important;
+        }
+        body.light-mode .panel-text {
+            color: #475569 !important;
+        }
+        body.light-mode .panel-heading {
+            color: #1e293b !important;
+        }
+        body.light-mode .panel-border {
+            border-color: #e2e8f0 !important;
+        }
+        body.light-mode kbd {
+            background: #e2e8f0 !important;
+            color: #1e293b !important;
+        }
+        #parabolaList {
+            resize: both;
+            overflow: auto;
+            min-width: 150px;
+            min-height: 100px;
+            max-width: 500px;
+            max-height: 400px;
+        }
+        #parabolaList .drag-handle {
+            cursor: move;
+        }
+        #parabolaList .curve-item {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
+</head>
+<body class="bg-slate-900">
+    <canvas id="canvas"></canvas>
+    
+    <!-- Controls Panel -->
+    <div class="fixed top-4 left-4 flex flex-col gap-2 z-50">
+        <button id="importBtn" class="btn bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+            Import
+        </button>
+        <button id="exportBtn" class="btn bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Export
+        </button>
+        <button id="importImageBtn" class="btn bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            Background
+        </button>
+        <button id="clearBtn" class="btn bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            Clear All
+        </button>
+        
+        <!-- Tools Panel -->
+        <div class="panel bg-slate-800/90 backdrop-blur p-3 rounded-xl border border-slate-700 mt-2">
+            <h4 class="panel-heading text-white text-sm font-bold mb-2">Tools</h4>
+            <div class="grid grid-cols-2 gap-1">
+                <button id="drawTool" class="tool-btn bg-emerald-600 text-white px-2 py-2 rounded-lg text-xs font-medium flex items-center justify-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                    Draw
+                </button>
+                <button id="circleTool" class="tool-btn bg-slate-600 hover:bg-slate-500 text-white px-2 py-2 rounded-lg text-xs font-medium flex items-center justify-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 12v.01" /></svg>
+                    Circle
+                </button>
+                <button id="eraserTool" class="tool-btn bg-slate-600 hover:bg-slate-500 text-white px-2 py-2 rounded-lg text-xs font-medium flex items-center justify-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 20H7L3 16c-.8-.8-.8-2 0-2.8L13.8 2.4c.8-.8 2-.8 2.8 0L21 6.8c.8.8.8 2 0 2.8L12 18"/></svg>
+                    Erase
+                </button>
+                <button id="resizeTool" class="tool-btn bg-slate-600 hover:bg-slate-500 text-white px-2 py-2 rounded-lg text-xs font-medium flex items-center justify-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+                    Resize
+                </button>
+                <button id="imageTool" class="tool-btn bg-slate-600 hover:bg-slate-500 text-white px-2 py-2 rounded-lg text-xs font-medium flex items-center justify-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    Img Tool
+                </button>
+            </div>
+        </div>
+        
+        <!-- Options Panel -->
+        <div class="panel bg-slate-800/90 backdrop-blur p-3 rounded-xl border border-slate-700 mt-2">
+            <h4 class="panel-heading text-white text-sm font-bold mb-2">Options</h4>
+            
+            <div class="flex items-center justify-between mb-2">
+                <span class="panel-text text-slate-300 text-sm">Show Dashed</span>
+                <div id="toggleDashed" class="toggle-btn bg-emerald-600 active"></div>
+            </div>
+            
+            <div class="flex items-center justify-between mb-2">
+                <span class="panel-text text-slate-300 text-sm">Show Points</span>
+                <div id="togglePoints" class="toggle-btn bg-emerald-600 active"></div>
+            </div>
+            
+            <div class="flex items-center justify-between mb-2">
+                <span class="panel-text text-slate-300 text-sm">Line Mode</span>
+                <div id="toggleLineMode" class="toggle-btn bg-slate-600"></div>
+            </div>
+            
+            <div class="flex items-center justify-between mb-2">
+                <span class="panel-text text-slate-300 text-sm">Light Mode</span>
+                <div id="toggleLightMode" class="toggle-btn bg-slate-600"></div>
+            </div>
+            
+            <div class="panel-text text-slate-400 text-xs mt-2 pt-2 border-t panel-border border-slate-700">
+                Scroll to zoom • Alt+drag to pan
+            </div>
+        </div>
+    </div>
+
+    <!-- Instructions Panel Toggle Button -->
+    <button id="showHelpBtn" class="fixed top-4 right-4 bg-emerald-600 hover:bg-emerald-500 text-white w-10 h-10 rounded-full z-50 flex items-center justify-center text-2xl font-bold hidden">
+        +
+    </button>
+
+    <!-- Instructions Panel -->
+    <div id="instructionsPanel" class="panel fixed top-4 right-4 bg-slate-800/90 backdrop-blur text-white p-4 rounded-xl max-w-xs z-50 border border-slate-700">
+        <div class="flex justify-between items-start mb-2">
+            <h3 class="font-bold text-lg text-emerald-400">📐 How to Use</h3>
+            <button id="hideHelpBtn" class="panel-text text-slate-400 hover:text-white w-6 h-6 flex items-center justify-center rounded hover:bg-slate-700">−</button>
+        </div>
+        <ol class="text-sm space-y-1 panel-text text-slate-300">
+            <li>1. <strong class="panel-heading text-white">Click</strong> to place first point</li>
+            <li>2. <strong class="panel-heading text-white">Click</strong> to place second point</li>
+            <li>3. Use <strong class="panel-heading text-white">Circle Tool</strong> for arcs</li>
+            <li>4. Use <strong class="panel-heading text-white">Resize Tool</strong> to cut circles</li>
+            <li>5. <strong class="panel-heading text-white">Right-click</strong> curve to delete</li>
+            <li>6. Use <strong class="panel-heading text-white">Image Tool</strong> to move/resize BG</li>
+            <li>7. <strong class="panel-heading text-white">Alt+drag</strong> to pan canvas</li>
+        </ol>
+        <div id="statusText" class="mt-3 pt-3 border-t panel-border border-slate-600 text-emerald-400 font-medium">
+            Click to place first point
+        </div>
+    </div>
+
+    <!-- Parabola List (Draggable & Resizable) -->
+    <div id="parabolaList" class="panel fixed bg-slate-800/90 backdrop-blur text-white p-3 rounded-xl z-50 border border-slate-700 hidden" style="width: 280px; height: 200px; bottom: 80px; right: 16px;">
+        <div class="drag-handle flex justify-between items-center mb-2 cursor-move">
+            <h3 class="font-bold text-sm text-blue-400">📊 Curves</h3>
+            <span class="text-slate-500 text-xs">drag to move</span>
+        </div>
+        <div id="listContent" class="overflow-y-auto" style="height: calc(100% - 30px);"></div>
+    </div>
+
+    <!-- Equation Tooltip -->
+    <div id="equationTooltip" class="equation-tooltip hidden">
+        <div id="tooltipContent" class="flex items-center gap-3"></div>
+    </div>
+
+    <!-- Keyboard Shortcuts Bar -->
+    <div class="panel fixed bottom-4 left-1/2 -translate-x-1/2 bg-slate-800/90 backdrop-blur text-white px-4 py-2 rounded-xl z-50 border border-slate-700 flex gap-4 text-sm flex-wrap justify-center">
+        <span class="panel-text text-slate-400"><kbd class="bg-slate-700 px-1.5 py-0.5 rounded text-xs">Ctrl+Z</kbd> Undo</span>
+        <span class="panel-text text-slate-400"><kbd class="bg-slate-700 px-1.5 py-0.5 rounded text-xs">Scroll</kbd> Zoom</span>
+        <span class="panel-text text-slate-400"><kbd class="bg-slate-700 px-1.5 py-0.5 rounded text-xs">Esc</kbd> Cancel</span>
+        <span class="panel-text text-slate-400"><kbd class="bg-slate-700 px-1.5 py-0.5 rounded text-xs">E</kbd> Eraser</span>
+        <span class="panel-text text-slate-400"><kbd class="bg-slate-700 px-1.5 py-0.5 rounded text-xs">R</kbd> Resize</span>
+    </div>
+
+    <!-- Import Modal -->
+    <div id="importModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden items-center justify-center z-[200]">
+        <div class="modal bg-slate-800 p-6 rounded-2xl max-w-lg w-full mx-4 border border-slate-700">
+            <h3 class="text-xl font-bold text-white mb-4">Import Curves</h3>
+            <textarea id="importTextarea" class="w-full h-48 bg-slate-900 text-white p-3 rounded-lg font-mono text-sm border border-slate-600 focus:border-emerald-500 focus:outline-none" placeholder="Paste JSON data here..."></textarea>
+            <div class="flex gap-3 mt-4">
+                <button id="confirmImport" class="btn flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg font-medium">Import</button>
+                <button id="cancelImport" class="btn flex-1 bg-slate-600 hover:bg-slate-500 text-white py-2 rounded-lg font-medium">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auto-save indicator -->
+    <div id="saveIndicator" class="fixed top-4 left-1/2 -translate-x-1/2 bg-emerald-600 text-white px-3 py-1 rounded-full text-sm z-50 opacity-0 transition-opacity duration-300">
+        ✓ Saved
+    </div>
+
+    <input type="file" id="fileInput" accept=".json" class="hidden">
+    <input type="file" id="imageInput" accept="image/*" class="hidden">
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // State
+        let curves = [];
+        let undoStack = [];
+        let redoStack = [];
+        let tempPoints = [];
+        let hoveredCurve = null;
+        let gridSize = 40;
+        let minGridSize = 5; 
+        let maxGridSize = 200; 
+        let originX, originY;
+        let panOffsetX = 0;
+        let panOffsetY = 0;
+        let state = 'placing_first';
+        let showDashed = true;
+        let showPoints = true;
+        let lineMode = false;
+        let lightMode = false;
+        let currentTool = 'draw'; 
+        
+        // Background image state (Grid Coordinate System)
+        let backgroundImage = null;
+        let bgGridX = 0; 
+        let bgGridY = 0; 
+        let bgGridWidth = 40; 
+        let bgOpacity = 0.4;
+        
+        // Panning state
+        let isPanning = false;
+        let panStartX = 0;
+        let panStartY = 0;
+        
+        // Image Tool state
+        let activeImageHandle = null; 
+        let imgStartGridX = 0;
+        let imgStartGridY = 0;
+        let imgStartGridWidth = 0;
+        let imgStartGridHeight = 0; 
+        let imgAspectRatio = 1;
+        let imgDragStartX = 0;
+        let imgDragStartY = 0;
+        
+        // Resize tool state (for curves)
+        let selectedCurveForResize = null;
+        let selectedEndpoint = null;
+        let isResizing = false;
+        
+        // Curves box dragging
+        let isDraggingCurvesBox = false;
+        let curvesBoxOffsetX = 0;
+        let curvesBoxOffsetY = 0;
+        
+        // Colors
+        const colors = [
+            '#f43f5e', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', 
+            '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1'
+        ];
+        let colorIndex = 0;
+
+        // Local Storage
+        const STORAGE_KEY = 'parabola_builder_data';
+        
+        function saveToLocalStorage() {
+            const data = {
+                curves,
+                panOffsetX,
+                panOffsetY,
+                gridSize,
+                showDashed,
+                showPoints,
+                lineMode,
+                lightMode,
+                colorIndex,
+                bgGridX,
+                bgGridY,
+                bgGridWidth,
+                bgOpacity
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            showSaveIndicator();
+        }
+        
+        function loadFromLocalStorage() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    curves = data.curves || [];
+                    panOffsetX = isFinite(data.panOffsetX) ? data.panOffsetX : 0;
+                    panOffsetY = isFinite(data.panOffsetY) ? data.panOffsetY : 0;
+                    gridSize = (isFinite(data.gridSize) && data.gridSize > 0) ? data.gridSize : 40;
+                    showDashed = data.showDashed !== undefined ? data.showDashed : true;
+                    showPoints = data.showPoints !== undefined ? data.showPoints : true;
+                    lineMode = data.lineMode || false;
+                    lightMode = data.lightMode || false;
+                    colorIndex = data.colorIndex || 0;
+                    bgGridX = data.bgGridX !== undefined ? data.bgGridX : -20;
+                    bgGridY = data.bgGridY !== undefined ? data.bgGridY : 20;
+                    bgGridWidth = (data.bgGridWidth !== undefined && data.bgGridWidth > 0) ? data.bgGridWidth : 40;
+                    bgOpacity = data.bgOpacity !== undefined ? data.bgOpacity : 0.4;
+                    applySettings();
+                } catch (e) {
+                    console.error('Failed to load saved data, resetting to defaults:', e);
+                    gridSize = 40;
+                    panOffsetX = 0;
+                    panOffsetY = 0;
+                }
+            }
+        }
+        
+        function applySettings() {
+            const dashedToggle = document.getElementById('toggleDashed');
+            dashedToggle.classList.toggle('active', showDashed);
+            dashedToggle.classList.toggle('bg-emerald-600', showDashed);
+            dashedToggle.classList.toggle('bg-slate-600', !showDashed);
+            
+            const pointsToggle = document.getElementById('togglePoints');
+            pointsToggle.classList.toggle('active', showPoints);
+            pointsToggle.classList.toggle('bg-emerald-600', showPoints);
+            pointsToggle.classList.toggle('bg-slate-600', !showPoints);
+            
+            const lineModeToggle = document.getElementById('toggleLineMode');
+            lineModeToggle.classList.toggle('active', lineMode);
+            lineModeToggle.classList.toggle('bg-emerald-600', lineMode);
+            lineModeToggle.classList.toggle('bg-slate-600', !lineMode);
+            
+            const lightModeToggle = document.getElementById('toggleLightMode');
+            lightModeToggle.classList.toggle('active', lightMode);
+            lightModeToggle.classList.toggle('bg-emerald-600', lightMode);
+            lightModeToggle.classList.toggle('bg-slate-600', !lightMode);
+            document.body.classList.toggle('light-mode', lightMode);
+            
+            updateStatus(lineMode ? 'LINE MODE: Click to place first point' : 'Click to place first point');
+        }
+        
+        function showSaveIndicator() {
+            const indicator = document.getElementById('saveIndicator');
+            indicator.style.opacity = '1';
+            setTimeout(() => {
+                indicator.style.opacity = '0';
+            }, 1000);
+        }
+
+        function saveState() {
+            undoStack.push(JSON.stringify(curves));
+            redoStack = [];
+            if (undoStack.length > 50) undoStack.shift();
+            saveToLocalStorage();
+        }
+
+        function undo() {
+            if (undoStack.length > 0) {
+                redoStack.push(JSON.stringify(curves));
+                curves = JSON.parse(undoStack.pop());
+                saveToLocalStorage();
+                draw();
+            }
+        }
+
+        function redo() {
+            if (redoStack.length > 0) {
+                undoStack.push(JSON.stringify(curves));
+                curves = JSON.parse(redoStack.pop());
+                saveToLocalStorage();
+                draw();
+            }
+        }
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            if (gridSize < 1) gridSize = 40;
+            originX = Math.floor(canvas.width / 2 / gridSize) * gridSize + panOffsetX;
+            originY = Math.floor(canvas.height / 2 / gridSize) * gridSize + panOffsetY;
+            if (!isFinite(originX)) originX = canvas.width / 2;
+            if (!isFinite(originY)) originY = canvas.height / 2;
+            draw();
+        }
+
+        function screenToGrid(sx, sy) {
+            return {
+                x: (sx - originX) / gridSize, 
+                y: (originY - sy) / gridSize
+            };
+        }
+        
+        function screenToGridRounded(sx, sy) {
+            return {
+                x: Math.round((sx - originX) / gridSize),
+                y: Math.round((originY - sy) / gridSize)
+            };
+        }
+
+        function gridToScreen(gx, gy) {
+            return {
+                x: originX + gx * gridSize,
+                y: originY - gy * gridSize
+            };
+        }
+
+        function getImgScreenCoords() {
+            if (!backgroundImage) return null;
+            const w = bgGridWidth * gridSize;
+            const h = w / imgAspectRatio;
+            const x = originX + bgGridX * gridSize;
+            const y = originY - bgGridY * gridSize;
+            return { x, y, w, h };
+        }
+
+        function drawBackgroundImage() {
+            if (!backgroundImage) return;
+            ctx.save();
+            ctx.globalAlpha = bgOpacity;
+            const coords = getImgScreenCoords();
+            if (coords && isFinite(coords.x) && isFinite(coords.y) && isFinite(coords.w) && isFinite(coords.h)) {
+                ctx.drawImage(backgroundImage, coords.x, coords.y, coords.w, coords.h);
+            }
+            ctx.restore();
+        }
+
+        function drawImageHandles() {
+            if (!backgroundImage || currentTool !== 'image') return;
+            const coords = getImgScreenCoords();
+            if (!coords) return;
+            const { x, y, w, h } = coords;
+            ctx.save();
+            ctx.strokeStyle = '#3b82f6'; 
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, w, h);
+            ctx.fillStyle = '#fff';
+            const corners = [
+                {x: x, y: y}, {x: x + w, y: y},
+                {x: x + w, y: y + h}, {x: x, y: y + h}
+            ];
+            corners.forEach(c => {
+                ctx.beginPath();
+                ctx.arc(c.x, c.y, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            });
+            ctx.restore();
+        }
+
+        function drawGrid() {
+            const hasBg = !!backgroundImage;
+            let gridColor, axisColor, labelColor, originColor;
+            
+            if (hasBg) {
+                gridColor = lightMode ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.2)';
+                axisColor = lightMode ? '#000' : '#fff';
+                labelColor = lightMode ? '#000' : '#fff';
+                originColor = lightMode ? '#334155' : '#e2e8f0';
+            } else {
+                gridColor = lightMode ? '#cbd5e1' : '#334155';
+                axisColor = lightMode ? '#94a3b8' : '#64748b';
+                labelColor = lightMode ? '#64748b' : '#64748b';
+                originColor = lightMode ? '#64748b' : '#94a3b8';
+            }
+            
+            ctx.strokeStyle = gridColor;
+            ctx.lineWidth = hasBg ? 1.5 : 1;
+            const safeGridSize = Math.max(5, gridSize);
+
+            for (let x = originX % safeGridSize; x < canvas.width; x += safeGridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+
+            for (let y = originY % safeGridSize; y < canvas.height; y += safeGridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            ctx.strokeStyle = axisColor;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, originY);
+            ctx.lineTo(canvas.width, originY);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(originX, 0);
+            ctx.lineTo(originX, canvas.height);
+            ctx.stroke();
+            ctx.fillStyle = originColor;
+            ctx.beginPath();
+            ctx.arc(originX, originY, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = labelColor;
+            ctx.font = hasBg ? 'bold 12px sans-serif' : '12px sans-serif';
+            
+            const labelStep = safeGridSize < 30 ? 2 : 1;
+            for (let x = originX % safeGridSize; x < canvas.width; x += safeGridSize * labelStep) {
+                const gridX = Math.round((x - originX) / safeGridSize);
+                if (gridX !== 0) {
+                    ctx.fillText(gridX.toString(), x - 5, originY + 15);
+                }
+            }
+            
+            for (let y = originY % safeGridSize; y < canvas.height; y += safeGridSize * labelStep) {
+                const gridY = Math.round((originY - y) / safeGridSize);
+                if (gridY !== 0) {
+                    ctx.fillText(gridY.toString(), originX + 8, y + 4);
+                }
+            }
+        }
+
+        function calculateParabola(p1, p2, vertex) {
+            const h = vertex.x;
+            const k = vertex.y;
+            const other = (p1.x === vertex.x && p1.y === vertex.y) ? p2 : p1;
+            const a = (other.y - k) / Math.pow(other.x - h, 2);
+            return { a, h, k, p1, p2, vertex, type: 'parabola' };
+        }
+
+        function calculateLine(p1, p2) {
+            const m = (p2.y - p1.y) / (p2.x - p1.x);
+            const b = p1.y - m * p1.x;
+            return { m, b, p1, p2, type: 'line' };
+        }
+        
+        function calculateCircle(center, rim) {
+            return { p1: center, p2: rim, p3: {x: rim.x, y: rim.y}, type: 'circle' };
+        }
+
+        function getCurveEquations(curve) {
+            if (curve.type === 'circle') {
+                const { p1, p2 } = curve;
+                const r = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+                const h = p1.x;
+                const k = p1.y;
+                const hStr = h === 0 ? 'x' : h > 0 ? `(x - ${formatNum(h)})` : `(x + ${formatNum(-h)})`;
+                const kStr = k === 0 ? 'y' : k > 0 ? `(y - ${formatNum(k)})` : `(y + ${formatNum(-k)})`;
+                const rSq = r*r;
+                const standardForm = `${hStr}² + ${kStr}² = ${formatNum(rSq)}`;
+                return { 
+                    standardForm, 
+                    vertexForm: `r = ${formatNum(r)}`, 
+                    h, k, isCircle: true 
+                };
+            }
+            
+            if (curve.type === 'line') {
+                const { m, b, p1, p2 } = curve;
+                const mStr = formatNum(m);
+                const bStr = b === 0 ? '' : b > 0 ? ` + ${formatNum(b)}` : ` - ${formatNum(-b)}`;
+                const slopeIntercept = isFinite(m) ? `y = ${mStr}x${bStr}` : `x = ${formatNum(p1.x)}`;
+                const pointSlope = isFinite(m) ? `y - ${formatNum(p1.y)} = ${mStr}(x - ${formatNum(p1.x)})` : `x = ${formatNum(p1.x)}`;
+                return { 
+                    standardForm: slopeIntercept, 
+                    vertexForm: pointSlope, 
+                    factored: `Slope: ${isFinite(m) ? mStr : '∞'}`,
+                    isLine: true
+                };
+            }
+            
+            const { a, h, k } = curve;
+            const b = -2 * a * h;
+            const c = a * h * h + k;
+            const discriminant = b * b - 4 * a * c;
+            let factored = 'No real roots';
+            if (discriminant >= 0 && a !== 0) {
+                const r1 = (-b + Math.sqrt(discriminant)) / (2 * a);
+                const r2 = (-b - Math.sqrt(discriminant)) / (2 * a);
+                const aStr = a === 1 ? '' : a === -1 ? '-' : formatNum(a);
+                factored = `y = ${aStr}(x ${r1 >= 0 ? '- ' + formatNum(r1) : '+ ' + formatNum(-r1)})(x ${r2 >= 0 ? '- ' + formatNum(r2) : '+ ' + formatNum(-r2)})`;
+            }
+            const aStr = a === 1 ? '' : a === -1 ? '-' : formatNum(a);
+            const hStr = h === 0 ? 'x' : h > 0 ? `(x - ${formatNum(h)})` : `(x + ${formatNum(-h)})`;
+            const kStr = k === 0 ? '' : k > 0 ? ` + ${formatNum(k)}` : ` - ${formatNum(-k)}`;
+            const vertexForm = `y = ${aStr}${hStr}²${kStr}`;
+            const bStr = b === 0 ? '' : b > 0 ? ` + ${formatNum(b)}x` : ` - ${formatNum(-b)}x`;
+            const cStr = c === 0 ? '' : c > 0 ? ` + ${formatNum(c)}` : ` - ${formatNum(-c)}`;
+            const aStd = a === 1 ? '' : a === -1 ? '-' : formatNum(a);
+            const standardForm = `y = ${aStd}x²${bStr}${cStr}`;
+            return { standardForm, factored, vertexForm, a, b, c, h, k, isLine: false };
+        }
+
+        function formatNum(n) {
+            if (!isFinite(n)) return '∞';
+            if (Number.isInteger(n)) return n.toString();
+            return n.toFixed(2).replace(/\.?0+$/, '');
+        }
+
+        function drawCurve(curve, isHovered = false, curveIndex = -1) {
+            const { p1, p2, color } = curve;
+            if (curve.type === 'circle') {
+                drawCircle(curve, isHovered, curveIndex);
+            } else if (curve.type === 'line') {
+                const minX = Math.min(p1.x, p2.x);
+                const maxX = Math.max(p1.x, p2.x);
+                drawLine(curve, isHovered, minX, maxX, curveIndex);
+            } else {
+                const minX = Math.min(p1.x, p2.x);
+                const maxX = Math.max(p1.x, p2.x);
+                drawParabola(curve, isHovered, minX, maxX, curveIndex);
+            }
+        }
+        
+        function drawCircle(curve, isHovered, curveIndex) {
+            const { p1, p2, p3, color } = curve;
+            const isSelected = currentTool === 'resize' && selectedCurveForResize === curveIndex;
+            
+            const r = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+            
+            // Calculate angles in Cartesian, drawing uses screen coords (invert Y)
+            // atan2(y, x)
+            let startAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+            let endAngle = Math.atan2(p3.y - p1.y, p3.x - p1.x);
+            
+            const d = Math.sqrt(Math.pow(p2.x - p3.x, 2) + Math.pow(p2.y - p3.y, 2));
+            const isFullCircle = d < 0.05;
+            
+            if (isFullCircle) {
+                startAngle = 0;
+                endAngle = 2 * Math.PI;
+            }
+
+            const centerScreen = gridToScreen(p1.x, p1.y);
+            const radiusScreen = r * gridSize;
+            
+            // Canvas arc uses clockwise screen angles. 
+            // Cartesian +Y is up, Screen +Y is down. 
+            // Angle A (Cartesian) corresponds to -A (Screen).
+            // We draw counter-clockwise in Cartesian, which is clockwise in screen if we flip sign?
+            // Actually, ctx.arc(x,y,r, start, end, counterClockwise).
+            // To match Cartesian CCW, use screen CounterClockwise = true, and pass negated angles.
+            
+            ctx.beginPath();
+            ctx.arc(centerScreen.x, centerScreen.y, radiusScreen, -startAngle, -endAngle, true);
+            
+            if (showDashed) {
+                ctx.strokeStyle = isHovered ? color : color + '60';
+                ctx.lineWidth = isHovered ? 3 : 2;
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+            }
+            
+            ctx.strokeStyle = color;
+            ctx.lineWidth = isHovered || isSelected ? 4 : 3;
+            ctx.setLineDash([]);
+            ctx.stroke();
+            
+            if (showPoints) {
+                const pointsToDraw = isFullCircle ? [p1, p2] : [p1, p2, p3];
+                pointsToDraw.forEach((p, idx) => {
+                    const screen = gridToScreen(p.x, p.y);
+                    let isEndpointSelected = false;
+                    if (isSelected) {
+                        if (idx === 0 && selectedEndpoint === 'p1') isEndpointSelected = true;
+                        if (idx === 1 && selectedEndpoint === 'p2') isEndpointSelected = true;
+                        if (idx === 2 && selectedEndpoint === 'p3') isEndpointSelected = true;
+                    }
+                    
+                    ctx.fillStyle = isEndpointSelected ? '#fbbf24' : color;
+                    ctx.beginPath();
+                    ctx.arc(screen.x, screen.y, isEndpointSelected ? 10 : 6, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath();
+                    ctx.arc(screen.x, screen.y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
+        }
+
+        function drawLine(curve, isHovered, minX, maxX, curveIndex) {
+            const { m, b, p1, p2, color } = curve;
+            const isSelected = currentTool === 'resize' && selectedCurveForResize === curveIndex;
+            
+            if (showDashed) {
+                ctx.strokeStyle = isHovered ? color : color + '60';
+                ctx.lineWidth = isHovered ? 3 : 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                if (isFinite(m)) {
+                    const startX = -50;
+                    const endX = (canvas.width + 50 - originX) / gridSize;
+                    const startY = m * startX + b;
+                    const endY = m * endX + b;
+                    const startScreen = gridToScreen(startX, startY);
+                    const endScreen = gridToScreen(endX, endY);
+                    ctx.moveTo(startScreen.x, startScreen.y);
+                    ctx.lineTo(endScreen.x, endScreen.y);
+                } else {
+                    const screen = gridToScreen(p1.x, 0);
+                    ctx.moveTo(screen.x, 0);
+                    ctx.lineTo(screen.x, canvas.height);
+                }
+                ctx.stroke();
+            }
+            
+            ctx.strokeStyle = color;
+            ctx.lineWidth = isHovered || isSelected ? 4 : 3;
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            const screen1 = gridToScreen(p1.x, p1.y);
+            const screen2 = gridToScreen(p2.x, p2.y);
+            ctx.moveTo(screen1.x, screen1.y);
+            ctx.lineTo(screen2.x, screen2.y);
+            ctx.stroke();
+            
+            if (showPoints) {
+                [p1, p2].forEach((p, idx) => {
+                    const screen = gridToScreen(p.x, p.y);
+                    const isEndpointSelected = isSelected && ((idx === 0 && selectedEndpoint === 'p1') || (idx === 1 && selectedEndpoint === 'p2'));
+                    ctx.fillStyle = isEndpointSelected ? '#fbbf24' : color;
+                    ctx.beginPath();
+                    ctx.arc(screen.x, screen.y, isEndpointSelected ? 10 : 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath();
+                    ctx.arc(screen.x, screen.y, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
+        }
+
+        function drawParabola(curve, isHovered, minX, maxX, curveIndex) {
+            const { a, h, k, p1, p2, color } = curve;
+            const isSelected = currentTool === 'resize' && selectedCurveForResize === curveIndex;
+            
+            if (showDashed) {
+                ctx.strokeStyle = isHovered ? color : color + '60';
+                ctx.lineWidth = isHovered ? 3 : 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                let started = false;
+                for (let sx = 0; sx < canvas.width; sx += 2) {
+                    const gx = (sx - originX) / gridSize;
+                    const gy = a * Math.pow(gx - h, 2) + k;
+                    const sy = originY - gy * gridSize;
+                    if (gx < minX || gx > maxX) {
+                        if (!started) { ctx.moveTo(sx, sy); started = true; } else { ctx.lineTo(sx, sy); }
+                    }
+                }
+                ctx.stroke();
+            }
+            
+            ctx.strokeStyle = color;
+            ctx.lineWidth = isHovered || isSelected ? 4 : 3;
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            let started = false;
+            for (let gx = minX; gx <= maxX; gx += 0.05) {
+                const gy = a * Math.pow(gx - h, 2) + k;
+                const screen = gridToScreen(gx, gy);
+                if (!started) { ctx.moveTo(screen.x, screen.y); started = true; } else { ctx.lineTo(screen.x, screen.y); }
+            }
+            ctx.stroke();
+            
+            if (showPoints) {
+                [p1, p2].forEach((p, idx) => {
+                    const screen = gridToScreen(p.x, p.y);
+                    const isEndpointSelected = isSelected && ((idx === 0 && selectedEndpoint === 'p1') || (idx === 1 && selectedEndpoint === 'p2'));
+                    ctx.fillStyle = isEndpointSelected ? '#fbbf24' : color;
+                    ctx.beginPath();
+                    ctx.arc(screen.x, screen.y, isEndpointSelected ? 10 : 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath();
+                    ctx.arc(screen.x, screen.y, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                
+                const vertexScreen = gridToScreen(h, k);
+                ctx.strokeStyle = lightMode ? '#1e293b' : '#fff';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([]);
+                ctx.beginPath();
+                ctx.moveTo(vertexScreen.x - 8, vertexScreen.y - 8);
+                ctx.lineTo(vertexScreen.x + 8, vertexScreen.y + 8);
+                ctx.moveTo(vertexScreen.x + 8, vertexScreen.y - 8);
+                ctx.lineTo(vertexScreen.x - 8, vertexScreen.y + 8);
+                ctx.stroke();
+            }
+        }
+
+        function drawTempPoints() {
+            tempPoints.forEach((p, i) => {
+                const screen = gridToScreen(p.x, p.y);
+                ctx.fillStyle = '#fbbf24';
+                ctx.beginPath();
+                ctx.arc(screen.x, screen.y, 10, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = lightMode ? '#1e293b' : '#fff';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText((i + 1).toString(), screen.x, screen.y);
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (lightMode) {
+                ctx.fillStyle = '#f1f5f9';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+            drawBackgroundImage();
+            drawImageHandles();
+            drawGrid();
+            curves.forEach((c, i) => { drawCurve(c, hoveredCurve === i, i); });
+            drawTempPoints();
+            updateCurveList();
+        }
+
+        function getCurveAtPoint(sx, sy) {
+            const grid = screenToGrid(sx, sy);
+            
+            for (let i = curves.length - 1; i >= 0; i--) {
+                const c = curves[i];
+                let expectedY;
+                
+                if (c.type === 'circle') {
+                    const r = Math.sqrt(Math.pow(c.p2.x - c.p1.x, 2) + Math.pow(c.p2.y - c.p1.y, 2));
+                    const screenC = gridToScreen(c.p1.x, c.p1.y);
+                    const screenMouse = {x: sx, y: sy};
+                    const distScreen = Math.sqrt(Math.pow(screenMouse.x - screenC.x, 2) + Math.pow(screenMouse.y - screenC.y, 2));
+                    const radiusScreen = r * gridSize;
+                    
+                    if (Math.abs(distScreen - radiusScreen) < 10) return i;
+                    continue;
+                }
+                
+                if (c.type === 'line') {
+                    if (!isFinite(c.m)) {
+                        if (Math.abs(grid.x - c.p1.x) < 0.5) return i;
+                        continue;
+                    }
+                    expectedY = c.m * grid.x + c.b;
+                } else {
+                    expectedY = c.a * Math.pow(grid.x - c.h, 2) + c.k;
+                }
+                
+                const distance = Math.abs(grid.y - expectedY);
+                if (distance < 0.5) {
+                    return i;
+                }
+            }
+            return null;
+        }
+
+        function getEndpointAtPoint(sx, sy, curveIndex) {
+            if (curveIndex === null || curveIndex < 0 || curveIndex >= curves.length) return null;
+            const curve = curves[curveIndex];
+            const screenP1 = gridToScreen(curve.p1.x, curve.p1.y);
+            const screenP2 = gridToScreen(curve.p2.x, curve.p2.y);
+            const hitRadius = 15; 
+            
+            const d1 = Math.sqrt(Math.pow(sx - screenP1.x, 2) + Math.pow(sy - screenP1.y, 2));
+            if (d1 < hitRadius) return 'p1';
+
+            const d2 = Math.sqrt(Math.pow(sx - screenP2.x, 2) + Math.pow(sy - screenP2.y, 2));
+            if (d2 < hitRadius) return 'p2';
+            
+            if (curve.type === 'circle' && curve.p3) {
+                const screenP3 = gridToScreen(curve.p3.x, curve.p3.y);
+                const d3 = Math.sqrt(Math.pow(sx - screenP3.x, 2) + Math.pow(sy - screenP3.y, 2));
+                if (d3 < hitRadius) return 'p3';
+            }
+            return null;
+        }
+
+        function updateCurveEndpoint(curveIndex, endpoint, newGridPoint) {
+            const curve = curves[curveIndex];
+            const newX = newGridPoint.x;
+            const newY_Coord = newGridPoint.y;
+            
+            if (curve.type === 'circle') {
+                if (endpoint === 'p1') {
+                    // Center Move: Snap to grid integers
+                    const rx = Math.round(newX);
+                    const ry = Math.round(newY_Coord);
+                    const dx = rx - curve.p1.x;
+                    const dy = ry - curve.p1.y;
+                    
+                    curve.p1.x = rx;
+                    curve.p1.y = ry;
+                    curve.p2.x += dx;
+                    curve.p2.y += dy;
+                    if(curve.p3) {
+                        curve.p3.x += dx;
+                        curve.p3.y += dy;
+                    }
+                } else if (endpoint === 'p2' || endpoint === 'p3') {
+                    // Start/End Point: Fixed Radius logic.
+                    // Calculate current radius from center p1 to CURRENT p2
+                    // Wait, if we are dragging p2, we need the radius BEFORE the drag start or maintain it.
+                    // Since we want to just "cut" and not resize, radius must remain constant.
+                    // But p2 defines the radius initially.
+                    // Let's assume radius is determined by dist(p1, p2).
+                    // To keep it constant, we project the new mouse position onto the circle defined by current radius.
+                    
+                    const r = Math.sqrt(Math.pow(curve.p2.x - curve.p1.x, 2) + Math.pow(curve.p2.y - curve.p1.y, 2));
+                    
+                    // Angle from center to mouse
+                    const angle = Math.atan2(newY_Coord - curve.p1.y, newX - curve.p1.x);
+                    
+                    // New position on the circle circumference
+                    const constrainedX = curve.p1.x + r * Math.cos(angle);
+                    const constrainedY = curve.p1.y + r * Math.sin(angle);
+                    
+                    if (endpoint === 'p2') {
+                        // Moving Start Point
+                        // If p3 was overlapping (full circle), move p3 too unless we want to start cutting immediately?
+                        // Let's make them separate.
+                        const wasFull = curve.p3 && Math.abs(curve.p2.x - curve.p3.x) < 0.001 && Math.abs(curve.p2.y - curve.p3.y) < 0.001;
+                        curve.p2 = { x: constrainedX, y: constrainedY };
+                        if (wasFull) {
+                            curve.p3 = { x: constrainedX, y: constrainedY };
+                        }
+                    } else if (endpoint === 'p3') {
+                        // Moving End Point
+                        curve.p3 = { x: constrainedX, y: constrainedY };
+                    }
+                }
+                return;
+            }
+            
+            const rx = Math.round(newX);
+            if (curve.type === 'line') {
+                const newY = isFinite(curve.m) ? Math.round(curve.m * rx + curve.b) : curve[endpoint].y;
+                curve[endpoint] = { x: rx, y: newY };
+            } else {
+                const newY = curve.a * Math.pow(rx - curve.h, 2) + curve.k;
+                curve[endpoint] = { x: rx, y: Math.round(newY) };
+            }
+        }
+
+        function updateStatus(text) {
+            document.getElementById('statusText').textContent = text;
+        }
+
+        function showEquationTooltip(index, x, y) {
+            const tooltip = document.getElementById('equationTooltip');
+            const content = document.getElementById('tooltipContent');
+            const c = curves[index];
+            const eq = getCurveEquations(c);
+            const textClass = lightMode ? 'text-slate-700' : '';
+            
+            if (eq.isCircle) {
+                content.innerHTML = `<div class="flex flex-col gap-0.5"><div><span class="text-blue-400 font-bold">Circle:</span> <span class="${textClass}">${eq.standardForm}</span></div></div>`;
+            } else if (eq.isLine) {
+                content.innerHTML = `<div class="flex flex-col gap-0.5"><div><span class="text-blue-400 font-bold">Slope:</span> <span class="${textClass}">${eq.standardForm}</span></div></div>`;
+            } else {
+                content.innerHTML = `<div class="flex flex-col gap-0.5"><div><span class="text-blue-400 font-bold">Standard:</span> <span class="${textClass}">${eq.standardForm}</span></div><div class="text-xs opacity-75">V: (${formatNum(eq.h)}, ${formatNum(eq.k)})</div></div>`;
+            }
+            tooltip.classList.remove('hidden');
+        }
+
+        function hideEquationTooltip() {
+            document.getElementById('equationTooltip').classList.add('hidden');
+        }
+
+        function updateCurveList() {
+            const list = document.getElementById('parabolaList');
+            const content = document.getElementById('listContent');
+            if (curves.length === 0) { list.classList.add('hidden'); return; }
+            list.classList.remove('hidden');
+            content.innerHTML = curves.map((c, i) => {
+                const eq = getCurveEquations(c);
+                let icon = '📈';
+                if(c.type === 'line') icon = '📏';
+                if(c.type === 'circle') icon = '⭕';
+                return `<div class="flex items-center gap-2 py-1 border-b panel-border border-slate-700 last:border-0"><span class="text-xs">${icon}</span><div class="w-2 h-2 rounded-full flex-shrink-0" style="background: ${c.color}"></div><div class="curve-item text-xs font-mono flex-1 panel-text text-slate-300">${eq.isLine ? eq.standardForm : eq.standardForm}</div><button onclick="deleteCurve(${i})" class="text-red-400 hover:text-red-300 text-xs flex-shrink-0">✕</button></div>`;
+            }).join('');
+        }
+
+        function deleteCurve(index) {
+            saveState();
+            curves.splice(index, 1);
+            if (selectedCurveForResize === index) {
+                selectedCurveForResize = null;
+                selectedEndpoint = null;
+            }
+            draw();
+        }
+        
+        function setTool(tool) {
+            currentTool = tool;
+            const drawBtn = document.getElementById('drawTool');
+            const circleBtn = document.getElementById('circleTool');
+            const eraserBtn = document.getElementById('eraserTool');
+            const resizeBtn = document.getElementById('resizeTool');
+            const imageBtn = document.getElementById('imageTool');
+            [drawBtn, circleBtn, eraserBtn, resizeBtn, imageBtn].forEach(btn => {
+                btn.classList.remove('bg-emerald-600');
+                btn.classList.add('bg-slate-600', 'hover:bg-slate-500');
+            });
+            canvas.classList.remove('eraser-mode', 'resize-mode', 'image-move', 'image-resize-nwse', 'image-resize-nesw');
+            selectedCurveForResize = null;
+            selectedEndpoint = null;
+            
+            if (tool === 'draw') {
+                drawBtn.classList.remove('bg-slate-600', 'hover:bg-slate-500');
+                drawBtn.classList.add('bg-emerald-600');
+                updateStatus(lineMode ? 'LINE MODE: Click to place first point' : 'Click to place first point');
+            } else if (tool === 'circle') {
+                circleBtn.classList.remove('bg-slate-600', 'hover:bg-slate-500');
+                circleBtn.classList.add('bg-emerald-600');
+                updateStatus('CIRCLE: Click center point');
+            } else if (tool === 'eraser') {
+                eraserBtn.classList.remove('bg-slate-600', 'hover:bg-slate-500');
+                eraserBtn.classList.add('bg-emerald-600');
+                canvas.classList.add('eraser-mode');
+                updateStatus('ERASER: Click on a curve to delete it');
+            } else if (tool === 'resize') {
+                resizeBtn.classList.remove('bg-slate-600', 'hover:bg-slate-500');
+                resizeBtn.classList.add('bg-emerald-600');
+                canvas.classList.add('resize-mode');
+                updateStatus('RESIZE: Click an endpoint to select, then drag to resize');
+            } else if (tool === 'image') {
+                imageBtn.classList.remove('bg-slate-600', 'hover:bg-slate-500');
+                imageBtn.classList.add('bg-emerald-600');
+                if(!backgroundImage) {
+                    updateStatus('IMG TOOL: Import an image first');
+                } else {
+                    updateStatus('IMG TOOL: Drag to move, corners to resize');
+                }
+            }
+            tempPoints = [];
+            if(tool !== 'draw' && tool !== 'circle') state = 'placing_first';
+            draw();
+        }
+
+        document.getElementById('drawTool').addEventListener('click', () => setTool('draw'));
+        document.getElementById('circleTool').addEventListener('click', () => setTool('circle'));
+        document.getElementById('eraserTool').addEventListener('click', () => setTool('eraser'));
+        document.getElementById('resizeTool').addEventListener('click', () => setTool('resize'));
+        document.getElementById('imageTool').addEventListener('click', () => setTool('image'));
+
+        document.getElementById('toggleDashed').addEventListener('click', function() {
+            showDashed = !showDashed;
+            this.classList.toggle('active', showDashed);
+            this.classList.toggle('bg-emerald-600', showDashed);
+            this.classList.toggle('bg-slate-600', !showDashed);
+            saveToLocalStorage();
+            draw();
+        });
+
+        document.getElementById('togglePoints').addEventListener('click', function() {
+            showPoints = !showPoints;
+            this.classList.toggle('active', showPoints);
+            this.classList.toggle('bg-emerald-600', showPoints);
+            this.classList.toggle('bg-slate-600', !showPoints);
+            saveToLocalStorage();
+            draw();
+        });
+
+        document.getElementById('toggleLineMode').addEventListener('click', function() {
+            lineMode = !lineMode;
+            this.classList.toggle('active', lineMode);
+            this.classList.toggle('bg-emerald-600', lineMode);
+            this.classList.toggle('bg-slate-600', !lineMode);
+            tempPoints = [];
+            state = 'placing_first';
+            updateStatus(lineMode ? 'LINE MODE: Click to place first point' : 'Click to place first point');
+            saveToLocalStorage();
+            draw();
+        });
+        
+        document.getElementById('toggleLightMode').addEventListener('click', function() {
+            lightMode = !lightMode;
+            this.classList.toggle('active', lightMode);
+            this.classList.toggle('bg-emerald-600', lightMode);
+            this.classList.toggle('bg-slate-600', !lightMode);
+            document.body.classList.toggle('light-mode', lightMode);
+            saveToLocalStorage();
+            draw();
+        });
+
+        document.getElementById('hideHelpBtn').addEventListener('click', () => {
+            document.getElementById('instructionsPanel').classList.add('hidden');
+            document.getElementById('showHelpBtn').classList.remove('hidden');
+        });
+
+        document.getElementById('showHelpBtn').addEventListener('click', () => {
+            document.getElementById('instructionsPanel').classList.remove('hidden');
+            document.getElementById('showHelpBtn').classList.add('hidden');
+        });
+
+        const parabolaList = document.getElementById('parabolaList');
+        const dragHandle = parabolaList.querySelector('.drag-handle');
+        
+        dragHandle.addEventListener('mousedown', (e) => {
+            isDraggingCurvesBox = true;
+            const rect = parabolaList.getBoundingClientRect();
+            curvesBoxOffsetX = e.clientX - rect.left;
+            curvesBoxOffsetY = e.clientY - rect.top;
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isDraggingCurvesBox) {
+                const newX = e.clientX - curvesBoxOffsetX;
+                const newY = e.clientY - curvesBoxOffsetY;
+                parabolaList.style.left = Math.max(0, Math.min(window.innerWidth - parabolaList.offsetWidth, newX)) + 'px';
+                parabolaList.style.top = Math.max(0, Math.min(window.innerHeight - parabolaList.offsetHeight, newY)) + 'px';
+                parabolaList.style.right = 'auto';
+                parabolaList.style.bottom = 'auto';
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDraggingCurvesBox = false;
+        });
+
+        function getImageHandleAt(x, y) {
+            if (!backgroundImage || currentTool !== 'image') return null;
+            const coords = getImgScreenCoords();
+            if (!coords) return null;
+            const { x: bx, y: by, w, h } = coords;
+            const tol = 10;
+            if (Math.abs(x - bx) < tol && Math.abs(y - by) < tol) return 'tl';
+            if (Math.abs(x - (bx + w)) < tol && Math.abs(y - by) < tol) return 'tr';
+            if (Math.abs(x - bx) < tol && Math.abs(y - (by + h)) < tol) return 'bl';
+            if (Math.abs(x - (bx + w)) < tol && Math.abs(y - (by + h)) < tol) return 'br';
+            if (x > bx && x < bx + w && y > by && y < by + h) return 'move';
+            return null;
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (currentTool === 'image' && backgroundImage) {
+                const handle = getImageHandleAt(e.clientX, e.clientY);
+                if (handle) {
+                    activeImageHandle = handle;
+                    imgDragStartX = e.clientX;
+                    imgDragStartY = e.clientY;
+                    imgStartGridX = bgGridX;
+                    imgStartGridY = bgGridY;
+                    imgStartGridWidth = bgGridWidth;
+                    imgStartGridHeight = bgGridWidth / imgAspectRatio;
+                    return; 
+                }
+            }
+
+            if (e.button === 1 || (e.button === 0 && e.altKey)) {
+                e.preventDefault();
+                isPanning = true;
+                panStartX = e.clientX - panOffsetX;
+                panStartY = e.clientY - panOffsetY;
+                canvas.classList.add('panning');
+                return;
+            }
+            
+            if (e.button === 0 && !e.altKey && !e.ctrlKey) {
+                if (currentTool === 'eraser') {
+                    const index = getCurveAtPoint(e.clientX, e.clientY);
+                    if (index !== null) {
+                        saveState();
+                        deleteCurve(index);
+                        hideEquationTooltip();
+                        hoveredCurve = null;
+                    }
+                    return;
+                }
+                
+                if (currentTool === 'resize') {
+                    const curveIndex = getCurveAtPoint(e.clientX, e.clientY);
+                    if (curveIndex !== null) {
+                        const endpoint = getEndpointAtPoint(e.clientX, e.clientY, curveIndex);
+                        if (endpoint) {
+                            selectedCurveForResize = curveIndex;
+                            selectedEndpoint = endpoint;
+                            isResizing = true;
+                            updateStatus(`RESIZE: Dragging ${endpoint === 'p1' ? 'center' : 'point'}`);
+                        } else {
+                            selectedCurveForResize = curveIndex;
+                            selectedEndpoint = null;
+                            updateStatus('RESIZE: Click on an endpoint (circle) to resize');
+                        }
+                    } else {
+                        selectedCurveForResize = null;
+                        selectedEndpoint = null;
+                        updateStatus('RESIZE: Click an endpoint to select, then drag to resize');
+                    }
+                    draw();
+                    return;
+                }
+                
+                const gridRounded = screenToGridRounded(e.clientX, e.clientY);
+                
+                if (currentTool === 'circle') {
+                    if (state === 'placing_first') {
+                        tempPoints = [gridRounded];
+                        state = 'placing_second';
+                        updateStatus('CIRCLE: Click outer point');
+                        draw();
+                    } else if (state === 'placing_second') {
+                        if (gridRounded.x === tempPoints[0].x && gridRounded.y === tempPoints[0].y) return;
+                        saveState();
+                        const circle = calculateCircle(tempPoints[0], gridRounded);
+                        circle.color = colors[colorIndex % colors.length];
+                        colorIndex++;
+                        curves.push(circle);
+                        tempPoints = [];
+                        state = 'placing_first';
+                        updateStatus('CIRCLE: Click center point');
+                        draw();
+                    }
+                    return;
+                }
+
+                if (currentTool === 'draw') {
+                    const g = gridRounded;
+                    if (lineMode) {
+                        if (state === 'placing_first') {
+                            tempPoints = [g];
+                            state = 'placing_second';
+                            updateStatus('LINE MODE: Click to place second point');
+                            draw();
+                        } else if (state === 'placing_second') {
+                            if (g.x === tempPoints[0].x && g.y === tempPoints[0].y) return;
+                            saveState();
+                            const line = calculateLine(tempPoints[0], g);
+                            line.color = colors[colorIndex % colors.length];
+                            colorIndex++;
+                            curves.push(line);
+                            tempPoints = [];
+                            state = 'placing_first';
+                            updateStatus('LINE MODE: Click to place first point');
+                            draw();
+                        }
+                    } else {
+                        if (state === 'placing_first') {
+                            tempPoints = [g];
+                            state = 'placing_second';
+                            updateStatus('Click to place second point');
+                            draw();
+                        } else if (state === 'placing_second') {
+                            if (g.x === tempPoints[0].x && g.y === tempPoints[0].y) return;
+                            tempPoints.push(g);
+                            state = 'selecting_vertex';
+                            updateStatus('Click point 1 or 2 to set as vertex');
+                            draw();
+                        } else if (state === 'selecting_vertex') {
+                            const d1 = Math.abs(g.x - tempPoints[0].x) + Math.abs(g.y - tempPoints[0].y);
+                            const d2 = Math.abs(g.x - tempPoints[1].x) + Math.abs(g.y - tempPoints[1].y);
+                            const vertex = d1 <= d2 ? tempPoints[0] : tempPoints[1];
+                            saveState();
+                            const parabola = calculateParabola(tempPoints[0], tempPoints[1], vertex);
+                            parabola.color = colors[colorIndex % colors.length];
+                            colorIndex++;
+                            curves.push(parabola);
+                            tempPoints = [];
+                            state = 'placing_first';
+                            updateStatus('Click to place first point');
+                            draw();
+                        }
+                    }
+                }
+            }
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (currentTool === 'image' && backgroundImage) {
+                if (!activeImageHandle) {
+                    const handle = getImageHandleAt(e.clientX, e.clientY);
+                    canvas.classList.remove('image-move', 'image-resize-nwse', 'image-resize-nesw');
+                    if (handle === 'move') canvas.classList.add('image-move');
+                    else if (handle === 'tl' || handle === 'br') canvas.classList.add('image-resize-nwse');
+                    else if (handle === 'tr' || handle === 'bl') canvas.classList.add('image-resize-nesw');
+                } else {
+                    const dx = e.clientX - imgDragStartX;
+                    const dy = e.clientY - imgDragStartY;
+                    const dGridX = dx / gridSize;
+                    const dGridY = - (dy / gridSize);
+                    
+                    if (activeImageHandle === 'move') {
+                        bgGridX = imgStartGridX + dGridX;
+                        bgGridY = imgStartGridY + dGridY;
+                    } else {
+                        let newGridWidth = imgStartGridWidth;
+                        if (activeImageHandle === 'br') newGridWidth = imgStartGridWidth + dGridX;
+                        else if (activeImageHandle === 'bl') newGridWidth = imgStartGridWidth - dGridX;
+                        else if (activeImageHandle === 'tr') newGridWidth = imgStartGridWidth + dGridX;
+                        else if (activeImageHandle === 'tl') newGridWidth = imgStartGridWidth - dGridX;
+                        
+                        if (newGridWidth < 1) newGridWidth = 1;
+                        bgGridWidth = newGridWidth;
+                        const newGridHeight = newGridWidth / imgAspectRatio;
+                        const startGridHeight = imgStartGridHeight;
+                        
+                        if (activeImageHandle === 'tl') {
+                            bgGridX = imgStartGridX + (imgStartGridWidth - newGridWidth);
+                            bgGridY = imgStartGridY - startGridHeight + newGridHeight;
+                        } else if (activeImageHandle === 'tr') {
+                            bgGridY = imgStartGridY - startGridHeight + newGridHeight;
+                        } else if (activeImageHandle === 'bl') {
+                            bgGridX = imgStartGridX + imgStartGridWidth - newGridWidth;
+                        }
+                    }
+                    draw();
+                    return;
+                }
+            }
+            
+            if (isPanning) {
+                panOffsetX = e.clientX - panStartX;
+                panOffsetY = e.clientY - panStartY;
+                originX = Math.floor(canvas.width / 2 / gridSize) * gridSize + panOffsetX;
+                originY = Math.floor(canvas.height / 2 / gridSize) * gridSize + panOffsetY;
+                draw();
+                return;
+            }
+            
+            if (isResizing && selectedCurveForResize !== null && selectedEndpoint !== null) {
+                const grid = screenToGrid(e.clientX, e.clientY);
+                updateCurveEndpoint(selectedCurveForResize, selectedEndpoint, grid);
+                draw();
+                return;
+            }
+            
+            const index = getCurveAtPoint(e.clientX, e.clientY);
+            
+            if (index !== null && index !== hoveredCurve) {
+                hoveredCurve = index;
+                showEquationTooltip(index, e.clientX, e.clientY);
+                draw();
+            } else if (index === null && hoveredCurve !== null) {
+                hoveredCurve = null;
+                hideEquationTooltip();
+                draw();
+            } else if (index !== null) {
+                showEquationTooltip(index, e.clientX, e.clientY);
+            }
+        });
+        
+        canvas.addEventListener('mouseup', (e) => {
+            if (activeImageHandle) { activeImageHandle = null; saveToLocalStorage(); }
+            if (isPanning) { isPanning = false; canvas.classList.remove('panning'); saveToLocalStorage(); }
+            if (isResizing) { isResizing = false; saveState(); updateStatus('RESIZE: Click an endpoint to select, then drag to resize'); }
+        });
+        
+        canvas.addEventListener('mouseleave', () => {
+            activeImageHandle = null;
+            if (isPanning) { isPanning = false; canvas.classList.remove('panning'); saveToLocalStorage(); }
+            if (isResizing) { isResizing = false; saveState(); }
+        });
+
+        canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            const index = getCurveAtPoint(e.clientX, e.clientY);
+            if (index !== null) {
+                saveState();
+                deleteCurve(index);
+                hideEquationTooltip();
+                hoveredCurve = null;
+            }
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+            const newGridSize = gridSize * zoomFactor;
+            if (newGridSize >= minGridSize && newGridSize <= maxGridSize) {
+                gridSize = newGridSize;
+                originX = Math.floor(canvas.width / 2 / gridSize) * gridSize + panOffsetX;
+                originY = Math.floor(canvas.height / 2 / gridSize) * gridSize + panOffsetY;
+                saveToLocalStorage();
+                draw();
+            }
+        });
+
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const data = JSON.stringify(curves, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'curves.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        document.getElementById('importBtn').addEventListener('click', () => {
+            document.getElementById('importModal').classList.remove('hidden');
+            document.getElementById('importModal').classList.add('flex');
+        });
+
+        document.getElementById('confirmImport').addEventListener('click', () => {
+            try {
+                const data = JSON.parse(document.getElementById('importTextarea').value);
+                if (Array.isArray(data)) {
+                    saveState();
+                    curves = data;
+                    draw();
+                }
+            } catch (e) {
+                alert('Invalid JSON data');
+            }
+            document.getElementById('importModal').classList.add('hidden');
+            document.getElementById('importModal').classList.remove('flex');
+            document.getElementById('importTextarea').value = '';
+        });
+
+        document.getElementById('cancelImport').addEventListener('click', () => {
+            document.getElementById('importModal').classList.add('hidden');
+            document.getElementById('importModal').classList.remove('flex');
+            document.getElementById('importTextarea').value = '';
+        });
+
+        document.getElementById('importImageBtn').addEventListener('click', () => {
+            document.getElementById('imageInput').click();
+        });
+
+        document.getElementById('imageInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        backgroundImage = img;
+                        imgAspectRatio = img.width / img.height;
+                        bgGridWidth = 40;
+                        const bgGridHeight = bgGridWidth / imgAspectRatio;
+                        bgGridX = -bgGridWidth / 2;
+                        bgGridY = bgGridHeight / 2;
+                        setTool('image');
+                        saveToLocalStorage();
+                        draw();
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+            e.target.value = '';
+        });
+
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            if (curves.length === 0 && tempPoints.length === 0 && !backgroundImage) return;
+            if (confirm('Clear all curves and background?')) {
+                saveState();
+                curves = [];
+                tempPoints = [];
+                backgroundImage = null;
+                state = 'placing_first';
+                selectedCurveForResize = null;
+                selectedEndpoint = null;
+                updateStatus(lineMode ? 'LINE MODE: Click to place first point' : 'Click to place first point');
+                hoveredCurve = null;
+                hideEquationTooltip();
+                draw();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                tempPoints = [];
+                state = 'placing_first';
+                selectedCurveForResize = null;
+                selectedEndpoint = null;
+                activeImageHandle = null;
+                isResizing = false;
+                if (currentTool === 'eraser') updateStatus('ERASER: Click on a curve to delete it');
+                else if (currentTool === 'resize') updateStatus('RESIZE: Click an endpoint to select, then drag to resize');
+                else if (currentTool === 'image') updateStatus('IMG TOOL: Drag to move, corners to resize');
+                else if (currentTool === 'circle') updateStatus('CIRCLE: Click center point');
+                else updateStatus(lineMode ? 'LINE MODE: Click to place first point' : 'Click to place first point');
+                draw();
+            }
+            if (e.key === 'z' && (e.ctrlKey || e.metaKey) && !e.shiftKey) { e.preventDefault(); undo(); }
+            if ((e.key === 'y' && (e.ctrlKey || e.metaKey)) || (e.key === 'Z' && (e.ctrlKey || e.metaKey) && e.shiftKey)) { e.preventDefault(); redo(); }
+            if (e.key === 'e' || e.key === 'E') { if (!e.ctrlKey && !e.metaKey) setTool(currentTool === 'eraser' ? 'draw' : 'eraser'); }
+            if (e.key === 'd' || e.key === 'D') { if (!e.ctrlKey && !e.metaKey) setTool('draw'); }
+            if (e.key === 'c' || e.key === 'C') { if (!e.ctrlKey && !e.metaKey) setTool('circle'); }
+            if (e.key === 'r' || e.key === 'R') { if (!e.ctrlKey && !e.metaKey) setTool(currentTool === 'resize' ? 'draw' : 'resize'); }
+            if (e.key === 'i' || e.key === 'I') { if (!e.ctrlKey && !e.metaKey) setTool(currentTool === 'image' ? 'draw' : 'image'); }
+            if (e.key === '=' || e.key === '+') {
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    if (gridSize < maxGridSize) {
+                        gridSize *= 1.1;
+                        originX = Math.floor(canvas.width / 2 / gridSize) * gridSize + panOffsetX;
+                        originY = Math.floor(canvas.height / 2 / gridSize) * gridSize + panOffsetY;
+                        saveToLocalStorage();
+                        draw();
+                    }
+                }
+            }
+            if (e.key === '-' || e.key === '_') {
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    if (gridSize > minGridSize) {
+                        gridSize *= 0.9;
+                        originX = Math.floor(canvas.width / 2 / gridSize) * gridSize + panOffsetX;
+                        originY = Math.floor(canvas.height / 2 / gridSize) * gridSize + panOffsetY;
+                        saveToLocalStorage();
+                        draw();
+                    }
+                }
+            }
+        });
+
+        window.addEventListener('resize', resize);
+        loadFromLocalStorage();
+        resize();
+    </script>
+</body>
+</html>
