@@ -2,7 +2,7 @@
 
 ## 📐 1. Overview
 
-The Parabola Builder is a standalone, single-page web application designed for visualizing conic sections (primarily parabolas) and lines on an interactive Cartesian coordinate grid. It allows users to define curves using three points, manipulate the view (pan and zoom), and manage data via export/import functions. The application uses HTML, pure JavaScript, and Tailwind CSS (via a CDN) for styling and interactivity.
+The Parabola Builder is a standalone, single-page web application designed for visualizing conic sections (primarily parabolas) and lines on an interactive Cartesian coordinate grid. It allows users to define curves using two points, manipulate the view (pan and zoom), and manage data via export/import functions. The application uses HTML, pure JavaScript, and Tailwind CSS (via a CDN) for styling and interactivity.
 
 ---
 
