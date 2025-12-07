@@ -3,7 +3,7 @@
 ### Site at: [Parabola Builder](https://mimouza23.github.io/ParabolaArtMaker/)
 
 Example Screenshot: 
-![Drawing produced using app.](https://github.com/mimouza23/ParabolaArtMaker/blob/main/assets/screenshots/example.png?raw=true)
+![Drawing produced using app.](https://github.com/mimouza23/ParabolaArtMaker/blob/main/example.png?raw=true)
 
 
 ## 📐 1. Overview
