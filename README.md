@@ -2,6 +2,10 @@
 
 ### Site at: [Parabola Builder](https://mimouza23.github.io/ParabolaArtMaker/)
 
+Example Screenshot: 
+![Drawing produced using app.](https://github.com/mimouza23/ParabolaArtMaker/blob/main/example.png?raw=true)
+
+
 ## 📐 1. Overview
 
 The Parabola Builder is a standalone, single-page web application designed for visualizing curves (primarily parabolas) and lines on an interactive Cartesian coordinate grid. It allows users to define curves using two points, manipulate the view (pan and zoom), and manage data via export/import functions. The application uses HTML, pure JavaScript, and Tailwind CSS (via a CDN) for styling and interactivity.
@@ -74,3 +78,397 @@ The application manages two primary data types:
 *   Support for arc drawing (partial circle) is unfinished and requires future development work.
 *   Might potentially include support for bezier curves and exponential equations.
 ### License: MIT
+
+Code to repoduce drawing (import and paste json):
+```
+[
+  {
+    "a": 0.1111111111111111,
+    "h": 9,
+    "k": 0,
+    "p1": {
+      "x": 0,
+      "y": 9
+    },
+    "p2": {
+      "x": 9,
+      "y": 0
+    },
+    "vertex": {
+      "x": 9,
+      "y": 0
+    },
+    "type": "parabola",
+    "color": "#8b5cf6"
+  },
+  {
+    "a": -0.1111111111111111,
+    "h": 9,
+    "k": 0,
+    "p1": {
+      "x": 0,
+      "y": -9
+    },
+    "p2": {
+      "x": 9,
+      "y": 0
+    },
+    "vertex": {
+      "x": 9,
+      "y": 0
+    },
+    "type": "parabola",
+    "color": "#10b981"
+  },
+  {
+    "a": -0.1111111111111111,
+    "h": -9,
+    "k": 0,
+    "p1": {
+      "x": -9,
+      "y": 0
+    },
+    "p2": {
+      "x": 0,
+      "y": -9
+    },
+    "vertex": {
+      "x": -9,
+      "y": 0
+    },
+    "type": "parabola",
+    "color": "#ec4899"
+  },
+  {
+    "a": 0.1111111111111111,
+    "h": -9,
+    "k": 0,
+    "p1": {
+      "x": -9,
+      "y": 0
+    },
+    "p2": {
+      "x": 0,
+      "y": 9
+    },
+    "vertex": {
+      "x": -9,
+      "y": 0
+    },
+    "type": "parabola",
+    "color": "#84cc16"
+  },
+  {
+    "a": -0.1111111111111111,
+    "h": 0,
+    "k": 9,
+    "p1": {
+      "x": 9,
+      "y": 0
+    },
+    "p2": {
+      "x": 0,
+      "y": 9
+    },
+    "vertex": {
+      "x": 0,
+      "y": 9
+    },
+    "type": "parabola",
+    "color": "#6366f1"
+  },
+  {
+    "a": 0.1111111111111111,
+    "h": 0,
+    "k": -9,
+    "p1": {
+      "x": 9,
+      "y": 0
+    },
+    "p2": {
+      "x": 0,
+      "y": -9
+    },
+    "vertex": {
+      "x": 0,
+      "y": -9
+    },
+    "type": "parabola",
+    "color": "#8b5cf6"
+  },
+  {
+    "a": 0.1111111111111111,
+    "h": 0,
+    "k": -9,
+    "p1": {
+      "x": 0,
+      "y": -9
+    },
+    "p2": {
+      "x": -9,
+      "y": 0
+    },
+    "vertex": {
+      "x": 0,
+      "y": -9
+    },
+    "type": "parabola",
+    "color": "#3b82f6"
+  },
+  {
+    "a": -0.1111111111111111,
+    "h": 0,
+    "k": 9,
+    "p1": {
+      "x": -9,
+      "y": 0
+    },
+    "p2": {
+      "x": 0,
+      "y": 9
+    },
+    "vertex": {
+      "x": 0,
+      "y": 9
+    },
+    "type": "parabola",
+    "color": "#10b981"
+  },
+  {
+    "m": 0,
+    "b": 5,
+    "p1": {
+      "x": -4,
+      "y": 5
+    },
+    "p2": {
+      "x": 4,
+      "y": 5
+    },
+    "type": "line",
+    "color": "#f59e0b"
+  },
+  {
+    "m": null,
+    "b": null,
+    "p1": {
+      "x": 4,
+      "y": 5
+    },
+    "p2": {
+      "x": 4,
+      "y": -5
+    },
+    "type": "line",
+    "color": "#ec4899"
+  },
+  {
+    "m": null,
+    "b": null,
+    "p1": {
+      "x": -4,
+      "y": -5
+    },
+    "p2": {
+      "x": -4,
+      "y": 5
+    },
+    "type": "line",
+    "color": "#f97316"
+  },
+  {
+    "m": 0,
+    "b": -5,
+    "p1": {
+      "x": -4,
+      "y": -5
+    },
+    "p2": {
+      "x": 4,
+      "y": -5
+    },
+    "type": "line",
+    "color": "#6366f1"
+  },
+  {
+    "m": -1.25,
+    "b": 0,
+    "p1": {
+      "x": -4,
+      "y": 5
+    },
+    "p2": {
+      "x": 4,
+      "y": -5
+    },
+    "type": "line",
+    "color": "#f43f5e"
+  },
+  {
+    "m": 1.25,
+    "b": 0,
+    "p1": {
+      "x": -4,
+      "y": -5
+    },
+    "p2": {
+      "x": 4,
+      "y": 5
+    },
+    "type": "line",
+    "color": "#8b5cf6"
+  },
+  {
+    "a": -0.3125,
+    "h": -4,
+    "k": 5,
+    "p1": {
+      "x": 0,
+      "y": 0
+    },
+    "p2": {
+      "x": -4,
+      "y": 5
+    },
+    "vertex": {
+      "x": -4,
+      "y": 5
+    },
+    "type": "parabola",
+    "color": "#3b82f6"
+  },
+  {
+    "a": -0.3125,
+    "h": 4,
+    "k": 5,
+    "p1": {
+      "x": 0,
+      "y": 0
+    },
+    "p2": {
+      "x": 4,
+      "y": 5
+    },
+    "vertex": {
+      "x": 4,
+      "y": 5
+    },
+    "type": "parabola",
+    "color": "#10b981"
+  },
+  {
+    "a": 0.3125,
+    "h": 4,
+    "k": -5,
+    "p1": {
+      "x": 0,
+      "y": 0
+    },
+    "p2": {
+      "x": 4,
+      "y": -5
+    },
+    "vertex": {
+      "x": 4,
+      "y": -5
+    },
+    "type": "parabola",
+    "color": "#f59e0b"
+  },
+  {
+    "a": -0.3125,
+    "h": 0,
+    "k": 0,
+    "p1": {
+      "x": -4,
+      "y": -5
+    },
+    "p2": {
+      "x": 0,
+      "y": 0
+    },
+    "vertex": {
+      "x": 0,
+      "y": 0
+    },
+    "type": "parabola",
+    "color": "#ec4899"
+  },
+  {
+    "a": 0.3125,
+    "h": -4,
+    "k": -5,
+    "p1": {
+      "x": -4,
+      "y": -5
+    },
+    "p2": {
+      "x": 0,
+      "y": 0
+    },
+    "vertex": {
+      "x": -4,
+      "y": -5
+    },
+    "type": "parabola",
+    "color": "#06b6d4"
+  },
+  {
+    "a": -0.3125,
+    "h": 0,
+    "k": 0,
+    "p1": {
+      "x": 4,
+      "y": -5
+    },
+    "p2": {
+      "x": 0,
+      "y": 0
+    },
+    "vertex": {
+      "x": 0,
+      "y": 0
+    },
+    "type": "parabola",
+    "color": "#84cc16"
+  },
+  {
+    "a": 0.3125,
+    "h": 0,
+    "k": 0,
+    "p1": {
+      "x": 0,
+      "y": 0
+    },
+    "p2": {
+      "x": 4,
+      "y": 5
+    },
+    "vertex": {
+      "x": 0,
+      "y": 0
+    },
+    "type": "parabola",
+    "color": "#f97316"
+  },
+  {
+    "a": 0.3125,
+    "h": 0,
+    "k": 0,
+    "p1": {
+      "x": -4,
+      "y": 5
+    },
+    "p2": {
+      "x": 0,
+      "y": 0
+    },
+    "vertex": {
+      "x": 0,
+      "y": 0
+    },
+    "type": "parabola",
+    "color": "#6366f1"
+  }
+]
+```
